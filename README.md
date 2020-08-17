@@ -1,5 +1,5 @@
-# Management service based on "kyriesent/node-rtsp-stream (@0.0.4)"
-注，0.0.5开始的版本都有问题，要么无法显示流，要么显示的流花屏。
+# Management service based on "kyriesent/node-rtsp-stream (@0.0.9)"
+注: http://jsmpeg.com/下载最新版的jsmpeg.min.js
 
 ## Plan features
 1. 多个websockets共享一个http server (one http listening port for multiple websocket channel)

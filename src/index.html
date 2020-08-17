@@ -7,12 +7,12 @@
 </head>
 <body>
    <div>
-       <canvas id="chanel1" width="auto" height="auto"></canvas>
+       <canvas id="chanel1" style="width: 800px; height: 600px"></canvas>
        <script type="text/javascript" src="jsmpeg.min.js"></script>
        <script type="text/javascript">
             var canvas = document.getElementById('chanel1');
-            var websocket = new WebSocket("ws://127.0.0.1:9999");
-            var player= new jsmpeg(websocket, {canvas:canvas, autoplay:true, loop:true})
+            // var websocket = new WebSocket("ws://127.0.0.1:9999");
+            var player= new JSMpeg.Player('ws://127.0.0.1:9999', {canvas:canvas, autoplay:true, loop:true})
        </script>
    </div>
 </body>
