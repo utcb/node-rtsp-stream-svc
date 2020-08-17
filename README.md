@@ -1,4 +1,14 @@
-# Steaming IP Camera Nodejs
+# Management service based on "kyriesent/node-rtsp-stream (@0.0.4)"
+注，0.0.5开始的版本都有问题，要么无法显示流，要么显示的流花屏。
+
+## Plan features
+1. 多个websockets共享一个http server (one http listening port for multiple websocket channel)
+2. 动态生成websocket的path
+3. 对外的api：
+ * start: create a websocket channel for a rtsp stream, return path (randomly generated）
+ * stop: stop websocket channel created via "start"
+ * list: list websocket channels currently available
+
 
 Open source project of real time streaming (~30 fps) IP/Network security camera on web browser using NodeJS
 
