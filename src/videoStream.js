@@ -16,11 +16,15 @@ VideoStream = function(options) {
   this.streamUrl = options.streamUrl
   this.width = options.width
   this.height = options.height
-  this.wsPort = options.wsPort
+  if (options.wsPort == undefined || options.wsPort == null || options.wsPort <= 0) this.wsPort = -1;
+  else this.wsPort = options.wsPort;
+  if (options.timeout == undefined || options.timeout == null || options.timeout <= 0) this.timeout = -1;
+  else this.timeout = options.timeout; // streaming channel will be closed after this "timeout" seconds if it > 0;
   this.inputStreamStarted = false
   this.stream = undefined
   this.startMpeg1Stream()
   this.pipeStreamToSocketServer()
+  this.startTime = 0; // streaming start time. 0 means not start. in milliseconds
   return this
 }
 
@@ -43,6 +47,13 @@ VideoStream.prototype.startMpeg1Stream = function() {
   this.stream = this.mpeg1Muxer.stream
   if (this.inputStreamStarted) {
     return
+  }
+  this.startTime = new Date().getTime();
+  if (this.timeout > 0) {
+    setTimeout(() => {
+      console.log("Stop streaming after " + this.timeout + " seconds\n");
+      this.stop();
+    }, this.timeout * 1000);
   }
   this.mpeg1Muxer.on('mpeg1data', (data) => {
     return this.emit('camdata', data)
@@ -88,9 +99,15 @@ VideoStream.prototype.startMpeg1Stream = function() {
 }
 
 VideoStream.prototype.pipeStreamToSocketServer = function() {
-  this.wsServer = new ws.Server({
-    port: this.wsPort
-  })
+  if (this.wsPort == -1) {
+    this.wsServer = new ws.Server({
+      noServer: true
+    })
+  } else {
+    this.wsServer = new ws.Server({
+      port: this.wsPort
+    })
+  }
   this.wsServer.on("connection", (socket, request) => {
     return this.onSocketConnect(socket, request)
   })
