@@ -21,10 +21,11 @@ VideoStream = function(options) {
   if (options.timeout == undefined || options.timeout == null || options.timeout <= 0) this.timeout = -1;
   else this.timeout = options.timeout; // streaming channel will be closed after this "timeout" seconds if it > 0;
   this.inputStreamStarted = false
+  this.startTime = 0; // streaming start time. 0 means not start. in milliseconds
+  // start stream immediately
   this.stream = undefined
   this.startMpeg1Stream()
   this.pipeStreamToSocketServer()
-  this.startTime = 0; // streaming start time. 0 means not start. in milliseconds
   return this
 }
 
@@ -47,11 +48,13 @@ VideoStream.prototype.startMpeg1Stream = function() {
   this.stream = this.mpeg1Muxer.stream
   if (this.inputStreamStarted) {
     return
+  } else {
+    this.inputStreamStarted = this.mpeg1Muxer.inputStreamStarted;
   }
   this.startTime = new Date().getTime();
   if (this.timeout > 0) {
     setTimeout(() => {
-      console.log("Stop streaming after " + this.timeout + " seconds\n");
+      console.log("Stop streaming after " + this.timeout + " seconds");
       this.stop();
     }, this.timeout * 1000);
   }
