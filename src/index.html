@@ -8,11 +8,12 @@
 <body>
    <div>
        <canvas id="chanel1" width="auto" height="auto"></canvas>
+       <!-- <canvas id="chanel1" style="width:100%;height:100%"></canvas> -->
        <script type="text/javascript" src="jsmpeg.min.js"></script>
        <script type="text/javascript">
             var canvas = document.getElementById('chanel1');
             // var websocket = new WebSocket("ws://127.0.0.1:9999");
-            var player= new JSMpeg.Player('ws://127.0.0.1:9999/32d05a74-8b8a-48b0-ba45-226d41b52297', {canvas:canvas, autoplay:true, loop:true});
+            var player= new JSMpeg.Player('ws://127.0.0.1:9999/8abc6ffa-28db-4b7e-acc0-96094b16a4ee', {canvas:canvas, autoplay:true, loop:true});
             /*
             player.source.onClose = function() {
                 console.log("palyer.source closed, stop play and destroy source");

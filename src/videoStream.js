@@ -53,9 +53,11 @@ VideoStream.prototype.startMpeg1Stream = function() {
   }
   this.startTime = new Date().getTime();
   if (this.timeout > 0) {
-    setTimeout(() => {
+    console.log("Set timeout");
+    this.timeoutFunc = setTimeout(() => {
       console.log("Stop streaming after " + this.timeout + " seconds");
       this.stop();
+      this.timeoutFunc = null;
     }, this.timeout * 1000);
   }
   this.mpeg1Muxer.on('mpeg1data', (data) => {
@@ -96,6 +98,11 @@ VideoStream.prototype.startMpeg1Stream = function() {
     return global.process.stderr.write(data)
   })
   this.mpeg1Muxer.on('exitWithError', () => {
+    this.stop();
+    if (this.timeoutFunc) {
+      console.log("Clear timeout");
+      clearTimeout(this.timeoutFunc);
+    }
     return this.emit('exitWithError')
   })
   return this

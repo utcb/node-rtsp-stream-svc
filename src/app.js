@@ -1,49 +1,115 @@
-// for test purpose
-//Camera Authentication
-var ip_address = "10.1.0.98"
-//camera username and password
-var username = "rtsp";
-var password = "rtsp123456";
-
 var _streamingMap = {}; // {key: value} => {uuid path: node-rtsp-stream object}
 
 const express = require('express');
 const app = express();
-const bodyParser = require('body-parser')
+const bodyParser = require('body-parser');
+app.use(bodyParser.urlencoded({ extended: false }));
+const cors = require('cors');
+app.use(cors()); // CORS-enabled for all origins
+
 const url = require('url');
 const http = require('http');
+const { v4: uuidv4 } = require('uuid');
 Stream = require('./videoStream');
 
-//A channel of camera stream
-stream = new Stream({
-  // streamUrl: 'rtsp://' + username + ':' + password + '@' + ip_address +':554/cam/realmonitor?channel=1&subtype=0&unicast=true&proto=Onvif',
-  streamUrl: 'rtsp://' + username + ':' + password + '@' + ip_address + ':554/cam/realmonitor?channel=1&subtype=0',
-  ffmpegOptions: {
-    "-s": "640x480"
-  },
-  // wsPort: 9999 
-  wsPort: -1,
-  // timeout: streaming channel will be closed automatically after this time (in seconds)
-  timeout: 30 
-});
-
-for (var key in _streamingMap) { // clean stopped stream
-  var so = _streamingMap[key];
-  if (so === undefined || so === null || !so.inputStreamStarted) {
-    delete _streamingMap[key];
+const sqlite3 = require('sqlite3');
+const db = new sqlite3.Database('../data/data.db', sqlite3.OPEN_READONLY, (err) => {
+  if (err) {
+    return console.error(err.message);
   }
-}
-const { v4: uuidv4 } = require('uuid');
-const uuidpath = uuidv4();
-_streamingMap[uuidpath] = stream;
-_streamingMap["32d05a74-8b8a-48b0-ba45-226d41b52297"] = stream;
-
-console.log("Add " + uuidpath + " into _streamingMap\n\n");
+  console.log('Connected to sqlite3 database data/data/db');
+});
+/* test database query
+ *
+db.all('select * from device', (err, rows) => {
+  if (err) {
+    throw err;
+  }
+  console.log(rows);
+});
+*/
 
 app.all('/start', (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  res.status(200);
-  res.end("{path: 'uuid path here'}");
+  let devid = req.query.id;
+  let devtoken = req.query.token;
+  if (!devid || !devtoken ) {
+    res.setHeader("Content-Type", "text/html");
+    return res.status(404).end('404: Not Found');
+  }
+  let devduration = req.query.duration;
+  let devsize = req.query.size;
+
+  db.get('select * from device where id = ?', [devid], (err, row) => {
+    if (err) {
+      console.error(err.message);
+      res.setHeader("Content-Type", "text/html");
+      return res.status(500).end('Something broke!');
+    }
+    if (row) { // found
+      let token = row.token;
+      if (devtoken === row.token) { // matched
+        console.log(`Found ${devid} and token matched`);
+        let duration = null; // timeout: streaming channel will be closed automatically after this time (in seconds)
+        if (devduration) {
+          duration = devduration;
+        } else if (row.duration) {
+          duration = row.duration;
+        }
+        if (duration == null) {
+          duration = 60;
+        } else if (duration < 30) {
+          duration = 30;
+        } else if (duration > 180) {
+          duration = 180;
+        }
+        let size = null;
+        if (devsize) {
+          size = devsize;
+        }
+        let ffmpegOpt = {};
+        if (size) {
+          ffmpegOpt['-s'] = size;
+        }
+        for (var key in _streamingMap) { // clean stopped stream
+          var so = _streamingMap[key];
+          if (so === undefined || so === null || !so.inputStreamStarted) {
+            delete _streamingMap[key];
+          }
+        }
+        let uuidpath = uuidv4(); // ws path
+        // new streaming
+        let stream = new Stream({
+          streamUrl: row.url,
+          ffmpegOptions: ffmpegOpt,
+          wsPort: -1,
+          timeout: duration 
+        });
+        _streamingMap[uuidpath] = stream;
+        _streamingMap[uuidpath].on('exitWithError', () => {
+          if (_streamingMap[uuidpath]) {
+            console.log(`exitWithError: delete [${uuidpath}] from _streamingMap`);
+            delete _streamingMap[uuidpath];
+          }
+        });
+        console.log("Add " + uuidpath + " into _streamingMap");
+        res.setHeader("Content-Type", "application/json");
+        res.status(200);
+        let retobj = {
+          path: uuidpath,
+          startTimeMs: stream.startTime,
+          timeout: duration
+        };
+        return res.end(JSON.stringify(retobj));
+      } else {
+        console.warn(`Found ${devid} but token not matched`);
+        res.setHeader("Content-Type", "text/html");
+        return res.status(403).end('403: Forbidden');
+      }
+    } else { // not found
+      res.setHeader("Content-Type", "text/html");
+      return res.status(404).end('404: Not Found');
+    }
+  });
 });
 
 app.all('/stop', (req, res) => {
@@ -84,6 +150,30 @@ app.use(function (err, req, res, next) {
 const server = app.listen(9999, () => {
   console.log('Listening on port 9999!');
 });
+function handle_sig(signal) {
+  console.log(`Recieve ${signal}`);
+  server.close(() => {
+    // close all stream
+    for (var key in _streamingMap) {
+      var so = _streamingMap[key];
+      if (so !== undefined && so !== null) {
+        console.log("Stop stream: " + so.streamUrl)
+        so.stop();
+      }
+    }
+    db.close(err => {
+      if (err) {
+        console.error(err.message);
+      }
+      console.log("Database is closed");
+      console.log('Process terminated')
+      process.exit();
+    });
+  })
+};
+process.on('SIGINT', handle_sig); // ctrl+c
+process.on('SIGTERM', handle_sig); // gracefully
+
 // websocket upgrade
 server.on('upgrade', function upgrade(request, socket, head) {
   const pathname = url.parse(request.url).pathname;
