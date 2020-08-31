@@ -66,7 +66,10 @@ app.all('/start', (req, res) => {
         if (devsize) {
           size = devsize;
         }
-        let ffmpegOpt = {};
+        let ffmpegOpt = {
+          '-q': 8,
+          '-bf': 0
+        };
         if (size) {
           ffmpegOpt['-s'] = size;
         }
@@ -152,24 +155,23 @@ const server = app.listen(9999, () => {
 });
 function handle_sig(signal) {
   console.log(`Recieve ${signal}`);
-  server.close(() => {
-    // close all stream
-    for (var key in _streamingMap) {
-      var so = _streamingMap[key];
-      if (so !== undefined && so !== null) {
-        console.log("Stop stream: " + so.streamUrl)
-        so.stop();
-      }
+  server.close();
+  // close all stream
+  for (var key in _streamingMap) {
+    var so = _streamingMap[key];
+    if (so !== undefined && so !== null) {
+      console.log("Stop stream: " + so.streamUrl)
+      so.stop();
     }
-    db.close(err => {
-      if (err) {
-        console.error(err.message);
-      }
-      console.log("Database is closed");
-      console.log('Process terminated')
-      process.exit();
-    });
-  })
+  }
+  db.close(err => {
+    if (err) {
+      console.error(err.message);
+    }
+    console.log("Database is closed");
+    console.log('Process terminated')
+    process.exit();
+  });
 };
 process.on('SIGINT', handle_sig); // ctrl+c
 process.on('SIGTERM', handle_sig); // gracefully
